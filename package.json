@@ -1,6 +1,6 @@
 {
   "name": "proxy-tester",
-  "version": "0.2.3",
+  "version": "0.2.2",
   "description": "Node http/socks proxy tester with server and client",
   "main": "build/index.js",
   "dependencies": {
@@ -25,7 +25,9 @@
     "url": "git+https://github.com/256cats/check-proxy.git"
   },
   "author": "Andrey E. <andrey@256cats.com> (256cats.com)",
-  "engines" : { "node" : ">=6.0.0" },
+  "engines": {
+    "node": ">=6.0.0"
+  },
   "licenses": [
     {
       "type": "MIT",
