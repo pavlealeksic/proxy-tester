@@ -1,81 +1,88 @@
-[![Build Status](https://travis-ci.org/256cats/check-proxy.svg?branch=master)](https://travis-ci.org/256cats/check-proxy)
-# Check-proxy - Advanced Node proxy testing library
+# proxy-tester
 
-This is an advanced proxy checking library that powers [https://gimmeproxy.com](https://gimmeproxy.com)
+### Reliable proxy testing
+##### This project is a fork from [check-proxy](https://www.npmjs.com/package/check-proxy) (un-maintained?)
+
+Library consists of a **server**, and **client**. Server runs on a known IP address and client attempts to connect to server through the proxy under test. 
 
 What it does:
-
- * checks http, socks4 and socks5 proxies
- * performs actual requests, not just pings
- * checks GET, POST, COOKIES, referer support
- * checks https support
- * checks country
- * checks proxy speed - provides total time and connect time
- * checks anonymity (binary checks - anonymous or not, 1 - anonymous, i.e. doesn't leak your IP address in any of the headers, 0 - not anonymous)
- * checks if proxy supports particular websites - by custom function, regex or substring search
- * allows to set connect timeout and overall timeout
-
-It will return a promise that is either fulfilled with an array of working proxies and protocols (some proxies support SOCKS4/SOCKS5 on the same port) or rejected if it wasn't able to connect to provided port.
+ * Tests http, socks4 and socks5 proxies
+ * Tests GET, POST, COOKIES, `referer` support
+ * Tests https support
+ * Provides geoIP result on proxy
+ * Tests proxy speed - provides total time and connect time
+ * Tests anonymity (binary checks - anonymous or not, 1 - anonymous, i.e. doesn't leak your IP address in any of the headers, 0 - not anonymous)
+ * Allows custom connectivity tests to specific websites - by custom function, regex, or substring search
 
 ## Installation
 
 ````javascript
-  npm install check-proxy --save
+  npm i proxy-tester --save
 ````
-
-## Usage
-
-Library consists of two parts - client and server. Server runs on a known IP address and client tries to connect to server through proxy you provide. 
-
-This allows to reliably check proxy parameters like GET, POST, COOKIES support. See example directory for server app. 
-
-Additionally it's possible to check if particular websites are working through this proxy. Websites are checked against specified function, regex or string.
-
+## Server Setup:
+#### server.js
 ````javascript
+const express = require('express'),
+  app = express(),
+  url = require('url'),
+  bodyParser = require('body-parser'),
+  cookieParser = require('cookie-parser'),
+  getProxyType = require('check-proxy').ping,
+  ipAddress = process.env.MASTER_IP || '10.0.10.150',
+  port = process.env.PORT || 8686;
 
-//client.js
-const checkProxy = require('check-proxy').check;
-checkProxy({
-  testHost: 'ping.rhcloud.com', // put your ping server url here
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(cookieParser());
+app.get('/', ping);
+app.post('/', ping);
+app.listen(port, ipAddress, function() {
+  console.log('%s:\nNode server started on %s:%d ...', Date(Date.now() ), ipAddress, port);
+});
+
+function ping(req, res) {
+  console.log('ip', req.connection.remoteAddress);
+  // console.log('headers', req.headers);
+	// console.log('cookies', req.cookies);
+  res.json(getProxyType(req.headers, req.query, req.body, req.cookies));
+}
+````
+## Client Setup
+#### client.js
+````javascript
+const checkProxy = require('proxy-tester').check;
+checkProxy({ // Returns a Promise
+  testHost: 'ping.mydomain.com', // put your ping server url here
   proxyIP: '107.151.152.218', // proxy ip to test
   proxyPort: 80, // proxy port to test
-  localIP: '185.103.27.23', // local machine IP address to test
+  localIP: '10.0.10.10', // local machine IP address to test
   connectTimeout: 6, // curl connect timeout, sec
   timeout: 10, // curl timeout, sec
-  websites: [
-    {
-      name: 'example',
-      url: 'http://www.example.com/',
-      regex: /example/gim, // expected result - regex
-
-    },
-    {
-      name: 'yandex',
-      url: 'http://www.yandex.ru/',
-      regex: /yandex/gim, // expected result - regex
-
-    },
-    {
-      name: 'google',
-      url: 'http://www.google.com/',
-      regex: function(html) { // expected result - custom function
-        return html && html.indexOf('google') != -1;
-      },
-    },
-    {
-      name: 'amazon',
-      url: 'http://www.amazon.com/',
-      regex: 'Amazon', // expected result - look for this string in the output
-    },
-
-  ]
-}).then(function(res) {
+  websites: [{
+    name: 'google',
+    url: 'https://www.google.com/',
+    regex: function(html) { // expected result - custom function
+      return html && html.indexOf('google') != -1;
+  },{
+    name: 'amazon',
+    url: 'https://www.amazon.com/',
+    regex: 'Amazon', // expected result - look for this string in the output
+  },{
+    name: 'ebay',
+    url: 'https://www.ebay.com/',
+    regex: /ebay/ig, // expected result - regex.test(result)
+  }]
+})
+.then(function(res) {
 	console.log('final result', res);
-}, function(err) {
-  console.log('proxy rejected', err);
+})
+.catch(e => {
+  console.log(e);
 });
-//result
-/*
+````
+
+## Result (in a Promise):
+```
 [{
   get: true,
   post: true,
@@ -91,13 +98,6 @@ checkProxy({
   connectTime: 0.23, // Time in seconds it took to establish the connection
   totalTime: 1.1, // Total transaction time in seconds for last the transfer
   websites: {
-    example: {
-      "responseCode": 200,
-      "connectTime": 0.648131, // seconds
-      "totalTime": 0.890804, // seconds
-      "receivedLength": 1270, // bytes
-      "averageSpeed": 1425 // bytes per second
-    },
     google: {
       "responseCode": 200,
       "connectTime": 0.648131, // seconds
@@ -106,56 +106,18 @@ checkProxy({
       "averageSpeed": 1425 // bytes per second
     },
     amazon: false,
-    yandex: false
+    ebay: {
+      "responseCode": 200,
+      "connectTime": 0.648131, // seconds
+      "totalTime": 0.890804, // seconds
+      "receivedLength": 1270, // bytes
+      "averageSpeed": 1425 // bytes per second
+    }
   }
 }]
-*/
-
-````
-
-````javascript
-//server.js
-const express = require('express'),
-  app = express(),
-  url = require('url'),
-  bodyParser = require('body-parser'),
-  cookieParser = require('cookie-parser'),
-  getProxyType = require('check-proxy').ping;
-
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(cookieParser());
-
-const ping = function(req, res) {
-  console.log('ip', req.connection.remoteAddress);
-  console.log('headers', req.headers);
-	console.log('cookies', req.cookies);
-  res.json(getProxyType(req.headers, req.query, req.body, req.cookies));
-}
-
-app.get('/', ping);
-app.post('/', ping);
-
-const ipaddress = process.env.OPENSHIFT_NODEJS_IP;
-const port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
-
-if (typeof ipaddress === "undefined") {
-  //  Log errors on OpenShift but continue w/ 127.0.0.1 - this
-  //  allows us to run/test the app locally.
-  console.warn('No OPENSHIFT_NODEJS_IP var, using 127.0.0.1');
-  ipaddress = "127.0.0.1";
-};
-
-app.listen(port, ipaddress, function() {
-  console.log('%s: Node server started on %s:%d ...',
-              Date(Date.now() ), ipaddress, port);
-});
-````
+```
 
 ## Tests
-
-    npm run test
-
-## News
-
-August 2017 - full rewrite in Typescript, readability and speed improvements.
+```
+mocha
+```
