@@ -43,7 +43,7 @@ app.listen(port, ipAddress, function() {
 function ping(req, res) {
   console.log('ip', req.connection.remoteAddress);
   // console.log('headers', req.headers);
-	// console.log('cookies', req.cookies);
+  // console.log('cookies', req.cookies);
   res.json(getProxyType(req.headers, req.query, req.body, req.cookies));
 }
 ````
