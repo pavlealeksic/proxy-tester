@@ -24,10 +24,9 @@ What it does:
 ````javascript
 const express = require('express'),
   app = express(),
-  url = require('url'),
   bodyParser = require('body-parser'),
   cookieParser = require('cookie-parser'),
-  getProxyType = require('check-proxy').ping,
+  getProxyType = require('proxy-tester').ping,
   ipAddress = process.env.MASTER_IP || '10.0.10.150',
   port = process.env.PORT || 8686;
 
